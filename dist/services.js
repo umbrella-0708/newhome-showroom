@@ -128,9 +128,6 @@ window.CATALOG = {
       "name": "广州贝壳官号楼盘视频",
       "lead": "由广州贝壳官号面向购房用户解读楼盘，通过蓝 V 渠道发布项目内容",
       "label": "方案权益",
-      "image": "sample-video",
-      "portrait": true,
-      "alt": "贝壳官号视频示例",
       "output": [
         "围绕楼盘价值、项目实景或行情进行内容表达",
         "钻石合作包含官号精品视频"
@@ -145,8 +142,9 @@ window.CATALOG = {
       "name": "好房直播间",
       "lead": "用官号主播讲盘、现场互动及线上答疑，帮助购房用户了解项目",
       "label": "方案权益",
-      "image": "matrix-live",
-      "alt": "项目现场直播布置与讲盘画面",
+      "image": "sample-video",
+      "portrait": true,
+      "alt": "好房直播间项目专场直播画面",
       "output": [
         "可按方案安排实地、专场或贴片等直播形式",
         "直播时长、平台入口和联动宣发按对应方案确认"

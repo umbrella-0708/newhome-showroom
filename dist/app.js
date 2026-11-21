@@ -246,7 +246,7 @@
   function serviceVisual(id, service) {
     if (id === 'talent') return talentRoster();
     if (id === 'digital') return scenePanel();
-    if (id === 'film') return filmPreviews();
+    if (id === 'film' || id === 'official-video') return filmPreviews();
     if (!service.image) return '';
     return '<figure class="service-figure' + (service.portrait ? ' portrait' : '') + '">' +
       photo(service.image,service.alt,'',true) + '<figcaption>' + service.alt + '</figcaption></figure>';
