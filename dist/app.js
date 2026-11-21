@@ -11,7 +11,7 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   }[character]));
-  const asset = name => window.INLINE_ASSETS?.[name] || 'assets/' + name + (name === 'brand' ? '.svg' : '.webp');
+  const asset = name => window.INLINE_ASSETS?.[name] || 'assets/' + name + (name === 'brand' ? '.svg' : name === 'brand-print' ? '.png' : '.webp');
   const serviceHref = id => '#service/' + id;
   const planHref = id => '#plan/' + id;
   const caseHref = id => '#case/' + id;
@@ -43,6 +43,19 @@
   let activePackage = '';
   let catalogScroll = 0;
   let notifyTimer;
+  const isWechat = typeof navigator !== 'undefined' && /MicroMessenger/i.test(navigator.userAgent || '');
+  document.body.dataset.browser = isWechat ? 'wechat' : 'browser';
+  let pdfExport = null;
+  let pdfGeneration = 0;
+
+  function invalidatePDF() {
+    pdfGeneration++;
+    if (pdfExport) URL.revokeObjectURL(pdfExport.url);
+    pdfExport = null;
+    const panel = get('pdf-export');
+    if (panel) { panel.innerHTML=''; panel.removeAttribute('aria-busy'); }
+    dialog.querySelector('[data-action="export-pdf"]')?.removeAttribute('disabled');
+  }
 
   function photo(name, alt, className = '', eager = false) {
     return '<img class="' + className + '" src="' + asset(name) + '" alt="' + escape(alt) + '" loading="' + (eager ? 'eager' : 'lazy') + '">';
@@ -77,7 +90,7 @@
 
   function catalogIntro() {
     return '<section class="catalog-intro"><div class="wrap intro-inner"><div><h1>新房营销服务目录</h1>' +
-     '<p>查找具体服务，了解实际呈现、交付内容和合作方式</p></div>' +
+     '<p><span class="intro-desktop">查找具体服务，了解实际呈现、交付内容和合作方式</span><span class="intro-mobile">浏览服务与案例，按需配置合作方案</span></p></div>' +
      '<div class="search-box"><label for="service-search">搜索服务</label><div class="search-field">' +
      '<span class="search-icon" aria-hidden="true"></span><input type="search" id="service-search" placeholder="例如：达人探盘、直播、VR" value="' + escape(filter) + '" autocomplete="off"></div></div></div></section>';
   }
@@ -392,21 +405,24 @@
 
   function renderSelection() {
     dialog.innerHTML = '<div class="selection-head"><h2 id="selection-title">意向清单</h2><button type="button" class="close" data-action="close-selection" aria-label="关闭意向清单">×</button></div>' +
-      (saved.length ? '<p>已选 ' + saved.length + ' 项 · 项目名称和需求仅保存在当前浏览器</p>' +
+      (saved.length ? '<p>已选 ' + saved.length + ' 项 · 核对服务配置，生成合作清单</p>' +
       '<ul class="saved-list">' + saved.map(item => {
         const {title,config,addOns} = itemData(item);
         return '<li><div><a data-action="close-selection" href="' + (services[item.id] ? serviceHref(item.id) : planHref(item.id)) +
           '"><b>' + title + '</b><small>' + config + '</small></a>' +
           addOns.map(extra => '<small>' + escape(extra.name) + ' · ' + escape(extra.quote) + '</small>').join('') +
           '</div><button data-action="remove" data-id="' + item.id +
-          '" aria-label="移除' + title + '">移除</button></li>';
+      '" aria-label="移除' + title + '">移除</button></li>';
       }).join('') + '</ul><label>项目名称<input id="project" maxlength="70" value="' + escape(project) +
       '"></label><label>项目需求<textarea id="notes" rows="4" maxlength="500">' + escape(notes) +
-      '</textarea></label><div class="selection-actions"><button class="primary" type="button" data-action="download">下载意向清单</button><button class="outline" type="button" data-action="print">打印／存为 PDF</button></div>'
+      '</textarea></label><div id="pdf-export" class="pdf-export" aria-live="polite"></div>' +
+      '<div class="selection-actions"><button class="primary" type="button" data-action="export-pdf">生成 PDF 清单</button>' +
+      '<button class="outline print-option" type="button" data-action="print">打印清单</button><button class="text-download" type="button" data-action="download">导出文字版</button></div>'
       : '<div class="empty"><h3>还没有加入服务</h3><p>在服务详情或合作方案页选择「加入意向清单」</p></div>');
   }
 
   function setSaved(items) {
+    invalidatePDF();
     saved = items;
     storage.set('showroom-plan', saved);
     const count = get('header').querySelector('.saved-button span');
@@ -421,8 +437,54 @@
     return window.SelectionDocument.toText(selectionDocument());
   }
 
+  async function exportPDF() {
+    if (!saved.length) return;
+    invalidatePDF();
+    const ticket=pdfGeneration;
+    const panel=get('pdf-export');
+    const button=dialog.querySelector('[data-action="export-pdf"]');
+    if (!panel) return;
+    panel.setAttribute('aria-busy','true');
+    if (button) button.disabled=true;
+    const progress=message=>{
+      if (ticket===pdfGeneration && panel.isConnected) panel.innerHTML='<p class="pdf-progress"><span class="pdf-spinner" aria-hidden="true"></span>'+escape(message)+'</p>';
+    };
+    progress('正在整理清单');
+    try {
+      const result=await window.SelectionPDF.create(selectionDocument(),{logoUrl:asset('brand-print'),onProgress:progress});
+      if (ticket!==pdfGeneration || !panel.isConnected) return;
+      const blob=new Blob([result.bytes],{type:'application/pdf'});
+      const file=typeof File==='function' ? new File([blob],result.filename,{type:'application/pdf'}) : null;
+      const url=URL.createObjectURL(blob);
+      pdfExport={url,blob,file,filename:result.filename};
+      let canShare=false;
+      try { canShare=!!(file && navigator.share && navigator.canShare?.({files:[file]})); } catch {}
+      panel.innerHTML='<div class="pdf-ready"><b>PDF 已生成</b><span>'+result.pageCount+' 页 · '+Math.max(1,Math.round(blob.size/1024))+' KB</span></div>' +
+        '<div class="pdf-file-actions"><a class="primary" href="'+url+'" target="_blank" rel="noopener" type="application/pdf">打开 PDF</a>'+
+        (canShare ? '<button class="outline" type="button" data-action="share-pdf">保存／分享 PDF</button>' : '<a class="outline" href="'+url+'" download="'+escape(result.filename)+'">下载 PDF</a>')+'</div>' +
+        (isWechat ? '<p class="pdf-help">如微信未打开文件，点右上角「…」在 Safari 中打开，再生成并保存 PDF<br>下方清单图片可长按保存</p>' : '<p class="pdf-help">打开 PDF 后可预览和保存，也可直接下载文件</p>') +
+        '<details class="pdf-preview" open><summary>清单预览 · '+result.pageCount+' 页</summary><div>'+result.previews.map((src,index)=>'<img src="'+src+'" alt="服务清单第 '+(index+1)+' 页" loading="lazy">').join('')+'</div></details>';
+      panel.scrollIntoView({behavior:'smooth',block:'start'});
+    } catch (error) {
+      if (ticket!==pdfGeneration || !panel.isConnected) return;
+      panel.innerHTML='<div class="pdf-error" role="alert"><b>PDF 未能生成</b><p>'+escape(error.message || '请刷新页面后重试')+'</p><button class="outline" type="button" data-action="export-pdf">重新生成</button></div>';
+    } finally {
+      if (ticket===pdfGeneration) {panel.removeAttribute('aria-busy');if(button)button.disabled=false;}
+    }
+  }
+
+  function sharePDF() {
+    if (!pdfExport?.file || !navigator.share) return;
+    try {
+      navigator.share({files:[pdfExport.file]}).catch(error=>{
+        if(error.name!=='AbortError') showStatus('分享暂不可用，请点击「打开 PDF」保存');
+      });
+    } catch { showStatus('分享暂不可用，请点击「打开 PDF」保存'); }
+  }
+
   let printInProgress = false;
   async function printSelection() {
+    if (isWechat) { showStatus('请使用「生成 PDF 清单」打开和保存文件'); return; }
     if (printInProgress || !saved.length) return;
     printInProgress = true;
     const sheet = document.createElement('section');
@@ -535,6 +597,8 @@
       if (button && id === activeId) button.textContent = '加入意向清单';
     },
     download,
+    'export-pdf':exportPDF,
+    'share-pdf':sharePDF,
     print:printSelection
   };
 
@@ -558,8 +622,8 @@
     }
     const {id,value} = event.target;
     if (id === 'service-search') { filter = value; updateResults(); }
-    if (id === 'project') { project = value; storage.set('showroom-project',value); }
-    if (id === 'notes') { notes = value; storage.set('showroom-notes',value); }
+    if (id === 'project') { invalidatePDF(); project = value; storage.set('showroom-project',value); }
+    if (id === 'notes') { invalidatePDF(); notes = value; storage.set('showroom-notes',value); }
   });
   document.addEventListener('change', event => {
     if (event.target.matches('select[data-config],input[data-config]')) updateConfiguration(event.target);

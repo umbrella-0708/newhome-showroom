@@ -14,7 +14,7 @@ for (const file of fs.readdirSync(root).filter(file=>file.endsWith('.js'))) {
   new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
 }
 const context={window:{},Intl,Date};vm.createContext(context);
-for (const file of ['data.js','services.js','manual.js','configurator.js','selection-document.js']) {
+for (const file of ['data.js','services.js','manual.js','configurator.js','selection-document.js','selection-pdf.js']) {
   vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
 }
 const {CATALOG,SHOWROOM,MANUAL,createConfigurator,SelectionDocument}=context.window;
@@ -40,4 +40,9 @@ for (const id of ['matrix','focus']) {
   assert(config.renderPlan(id).includes('mobile-config-bar'));
 }
 assert(fs.readFileSync(path.join(root,'assets/brand.svg'),'utf8').includes('贝壳 × 妙窝生活'));
+assert(fs.existsSync(path.join(root,'assets/brand-print.png')));
+const exportModel=SelectionDocument.create({items:[{id:'focus',package:'diamond'},{id:'film'}],project:'项目',notes:'确认推广节点\n确认具体交付'});
+const exportPages=context.window.SelectionPDF.layout(exportModel,(value,size)=>Array.from(value).length*size);
+assert(exportPages.length>1);
+for(const commands of exportPages)for(const command of commands)assert(command.y>=100 && command.y<1062,'PDF content outside the page');
 console.log(`Validated scripts, ${images.size} image references, service records, configuration and PDF details`);
