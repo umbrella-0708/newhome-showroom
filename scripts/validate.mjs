@@ -8,7 +8,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../dist');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 for (const [,file] of html.matchAll(/(?:src|href)="([^"#][^"]*)"/g)) {
   if (/^(https?:|data:)/.test(file)) continue;
-  assert(fs.existsSync(path.join(root,file)),`Missing entry asset: ${file}`);
+  assert(fs.existsSync(path.join(root,file.split(/[?#]/)[0])),`Missing entry asset: ${file}`);
 }
 for (const file of fs.readdirSync(root).filter(file=>file.endsWith('.js'))) {
   new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});

@@ -8,8 +8,8 @@ const output=path.resolve(process.argv[2]||path.join(root,'delivery'));
 const dist=path.join(root,'dist');
 fs.mkdirSync(output,{recursive:true});
 let html=fs.readFileSync(path.join(dist,'index.html'),'utf8');
-html=html.replace(/<link rel="stylesheet" href="([^"]+)"([^>]*)>/g,(_,file,attrs)=>'<style'+(attrs.includes('media="print"')?' media="print"':'')+'>'+fs.readFileSync(path.join(dist,file),'utf8')+'</style>');
-const scripts=[...html.matchAll(/<script defer src="([^"]+)"><\/script>/g)].map(match=>match[1]);
+html=html.replace(/<link rel="stylesheet" href="([^"]+)"([^>]*)>/g,(_,file,attrs)=>'<style'+(attrs.includes('media="print"')?' media="print"':'')+'>'+fs.readFileSync(path.join(dist,file.split(/[?#]/)[0]),'utf8')+'</style>');
+const scripts=[...html.matchAll(/<script defer src="([^"]+)"><\/script>/g)].map(match=>match[1].split(/[?#]/)[0]);
 html=html.replace(/\s*<script defer src="[^"]+"><\/script>/g,'');
 const assets=Object.fromEntries(fs.readdirSync(path.join(dist,'assets')).filter(file=>/\.(svg|webp|png)$/.test(file)).map(file=>[
   path.parse(file).name,'data:'+({'.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'}[path.extname(file)])+';base64,'+fs.readFileSync(path.join(dist,'assets',file)).toString('base64')
