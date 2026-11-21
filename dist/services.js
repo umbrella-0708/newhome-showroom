@@ -55,7 +55,6 @@ window.CATALOG = {
       "services": [
         "column",
         "poster",
-        "share",
         "moments",
         "group-message"
       ]
@@ -366,19 +365,6 @@ window.CATALOG = {
         "matrix"
       ],
       "source": "广告付费 3.0 第 29、37 页"
-    },
-    "share": {
-      "name": "项目转发",
-      "lead": "由经纪人将项目物料转发到适合的私域沟通场景",
-      "label": "方案权益",
-      "output": [
-        "效果档位分别列示 1,000、2,000、5,000 次项目转发",
-        "确认发布素材和实际执行口径"
-      ],
-      "plans": [
-        "focus"
-      ],
-      "source": "效果付费 3.0 第 49 页"
     },
     "moments": {
       "name": "购房助手朋友圈",

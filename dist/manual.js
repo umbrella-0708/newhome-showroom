@@ -450,16 +450,6 @@ window.MANUAL = {
         "适合突出首开、加推或活动看点，具体窗口与项目确认"
       ]
     ],
-    "share": [
-      [
-        "借经纪人拓展私域触达",
-        "将项目海报、笔记等内容转发给服务者的自有客群"
-      ],
-      [
-        "按计划明确转发次数",
-        "超级聚焦档位按 1,000、2,000、5,000 次列示，次数与执行口径随档位确认"
-      ]
-    ],
     "moments": [
       [
         "由购房助手触达潜客",
@@ -521,7 +511,6 @@ window.MANUAL = {
       "search": "套餐标配",
       "venue": "套餐标配",
       "column": "套餐标配",
-      "share": "1,000 次",
       "moments": "1 次",
       "group-message": "1 次",
       "coin": "3,000 贝壳币"
@@ -534,7 +523,6 @@ window.MANUAL = {
       "venue": "套餐标配",
       "reach": "套餐标配",
       "column": "套餐标配",
-      "share": "2,000 次",
       "moments": "1 次",
       "group-message": "1 次",
       "digital": "基础版",
@@ -553,7 +541,6 @@ window.MANUAL = {
       "wecom": "定制信息／朋友圈",
       "study": "专项任务发布",
       "column": "套餐标配",
-      "share": "5,000 次",
       "moments": "2 次",
       "group-message": "2 次",
       "digital": "满配版",

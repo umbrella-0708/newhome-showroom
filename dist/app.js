@@ -30,7 +30,14 @@
   let saved = Array.isArray(stored) ? stored.filter(Boolean)
     .map(item => item.id === 'event' ? {id:'talent'} : item)
     .filter((item,index,items) => (Object.hasOwn(services,item.id) || Object.hasOwn(productsById,item.id))
-      && items.findIndex(candidate => candidate.id === item.id) === index) : [];
+      && items.findIndex(candidate => candidate.id === item.id) === index)
+    .map(item => {
+      const current = {...item};
+      if (Array.isArray(current.included)) current.included = current.included.filter(entry => entry && entry.name !== '项目转发');
+      if (Array.isArray(current.addOns)) current.addOns = current.addOns.filter(entry => entry && entry.id !== 'share' && entry.name !== '项目转发');
+      return current;
+    }) : [];
+  if (JSON.stringify(stored) !== JSON.stringify(saved)) storage.set('showroom-plan',saved);
   const configurator = window.createConfigurator({services,groups,products:productsById,manual,stored:id => saved.find(item => item.id === id)});
   let project = String(storage.get('showroom-project', '')).slice(0,70);
   let notes = String(storage.get('showroom-notes', '')).slice(0,500);
