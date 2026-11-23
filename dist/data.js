@@ -101,6 +101,7 @@ window.SHOWROOM = {
           "id": "light",
           "name": "轻享基础款",
           "price": "9.9 / 12 万元",
+          "noDigitalPrice": "8 万元",
           "meta": "30 位达人",
           "items": [
             "超级头部 6 · 头部 12 · 腰部 12",
@@ -112,6 +113,7 @@ window.SHOWROOM = {
           "id": "mid",
           "name": "精准放量款",
           "price": "14 / 16 万元",
+          "noDigitalPrice": "12 万元",
           "meta": "60 位达人",
           "items": [
             "超级头部 6 · 头部 12 · 腰部 22 · 新锐 20",
@@ -123,6 +125,7 @@ window.SHOWROOM = {
           "id": "full",
           "name": "全域流量款",
           "price": "20 / 22 万元",
+          "noDigitalPrice": "18 万元",
           "meta": "100 位达人",
           "items": [
             "超级头部 12 · 头部 25 · 腰部 35 · 新锐 28",

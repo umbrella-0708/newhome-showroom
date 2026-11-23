@@ -30,14 +30,32 @@ collect(CATALOG);collect(SHOWROOM);collect(MANUAL);
 for (const name of images) assert(fs.existsSync(path.join(root,'assets',name+'.webp')),`Missing image ${name}`);
 for (const id of ['matrix','focus']) {
   const config=createConfigurator({services:CATALOG.services,groups:CATALOG.groups,products,manual:MANUAL,stored:()=>null});
+  if (id==='matrix') config.change(id,'variant','original');
   config.change(id,'addon','digital',true);
   config.change(id,'spec','digital','full');
   config.change(id,'addon','film',true);
   const item=config.snapshot(id);
   const model=SelectionDocument.create({items:[item],project:'测试项目',notes:''});
   assert(model.sections[0].rows.some(r=>r.name==='主片交付'));
+  assert(model.sections[0].rows.some(r=>r.name==='数字案场扩展场景'));
   assert(model.sections[0].rows.every(r=>r.fee && r.spec));
   assert(config.renderPlan(id).includes('mobile-config-bar'));
+}
+const matrix=createConfigurator({services:CATALOG.services,groups:CATALOG.groups,products,manual:MANUAL,
+  stored:()=>({package:'light',addOns:[{id:'digital',mode:'fee',spec:'basic'}]})});
+assert.equal(matrix.snapshot('matrix').basePrice,'9.9 / 12 万元');
+assert(matrix.snapshot('matrix').addOns.some(item=>item.id==='digital'));
+matrix.change('matrix','variant','no-digital');
+for (const [tier,price] of [['light','8 万元'],['mid','12 万元'],['full','18 万元']]) {
+  matrix.change('matrix','tier',tier);
+  const item=matrix.snapshot('matrix');
+  assert.equal(item.basePrice,price);
+  assert(!item.addOns.some(addOn=>addOn.id==='digital'));
+  assert(!matrix.renderPlan('matrix').includes('data-id="digital"'));
+  const model=SelectionDocument.create({items:[item],project:'测试项目',notes:''});
+  assert.equal(model.sections[0].fee,price);
+  assert(model.sections[0].configuration.includes('不含数字移动案场'));
+  assert(!model.sections[0].rows.some(entry=>entry.name.includes('数字案场')));
 }
 assert(fs.readFileSync(path.join(root,'assets/brand.svg'),'utf8').includes('贝壳 × 妙窝生活'));
 assert(fs.existsSync(path.join(root,'assets/brand-print.png')));

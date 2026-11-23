@@ -22,8 +22,8 @@
       catch { return fallback; }
     },
     set(key, value) {
-      try { localStorage.setItem(key, JSON.stringify(value)); }
-      catch {}
+      try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+      catch { return false; }
     }
   };
   const stored = storage.get('showroom-plan', []);
@@ -41,11 +41,15 @@
   const configurator = window.createConfigurator({services,groups,products:productsById,manual,stored:id => saved.find(item => item.id === id)});
   let project = String(storage.get('showroom-project', '')).slice(0,70);
   let notes = String(storage.get('showroom-notes', '')).slice(0,500);
+  const customerHistoryKey = 'showroom-customer-history';
+  const savedAtFormat = new Intl.DateTimeFormat('zh-CN',{
+    timeZone:'Asia/Shanghai', dateStyle:'medium', timeStyle:'short', hour12:false
+  });
   let filter = '';
   let currentScene = 'area';
   let currentDistrict = '海珠区';
   let featuredId = 'wanbo-campaign';
-  let activeRoute = 'catalog';
+  let activeRoute = 'plans';
   let activeId = '';
   let activePackage = '';
   let catalogScroll = 0;
@@ -69,10 +73,10 @@
   }
 
   function header() {
-    get('header').innerHTML = '<div class="wrap header-inner"><a class="brand" href="#catalog">' +
+    get('header').innerHTML = '<div class="wrap header-inner"><a class="brand" href="#plans">' +
       photo('brand', '贝壳 × 妙窝生活', 'brand-image', true) + '<span>广州站 · 新房营销</span></a>' +
       '<nav aria-label="主导航">' + [
-        ['catalog','服务目录'], ['cases','项目案例'], ['plans','合作方案']
+        ['plans','合作方案'], ['catalog','服务目录'], ['cases','项目案例']
       ].map(([route,name]) => '<a href="#' + route + '"' +
         ((route === activeRoute || route === 'catalog' && activeRoute === 'service' || route === 'cases' && activeRoute === 'case' || route === 'plans' && activeRoute === 'plan') ? ' aria-current="page"' : '') +
         '>' + name + '</a>').join('') + '</nav>' +
@@ -84,8 +88,8 @@
     if (requested === 'service' && Object.hasOwn(services,id)) return ['service', id];
     if (requested === 'case' && cases.some(item => item.id === id)) return ['case', id];
     if (requested === 'plan' && ['matrix','focus'].includes(id)) return ['plan', id];
-    if (['cases','plans'].includes(requested)) return [requested,''];
-    return ['catalog',''];
+    if (['catalog','cases','plans','clients'].includes(requested)) return [requested,''];
+    return ['plans',''];
   }
 
   function showStatus(message) {
@@ -337,7 +341,7 @@
   }
 
   function plansPage() {
-    return '<article class="wrap detail">' + breadcrumb('#catalog','服务目录','合作方案') +
+    return '<article class="wrap detail">' +
       '<header class="detail-header"><div><h1>合作方案</h1><p>先选基础配置，再按项目需要增加服务</p></div></header>' +
       '<div class="plan-entries">' + ['matrix','focus'].map(id => {
         const product = productsById[id];
@@ -349,7 +353,9 @@
           '<div class="plan-tier-list">' + product.packages.map(option => '<div><span class="plan-tier-name">' +
           option.name + '</span><span class="plan-tier-meta">' +
           (id === 'matrix' ? option.meta : '达人 ' + manual.base[option.id].talent) +
-          '</span><span class="plan-tier-rate">' + option.price + '</span></div>').join('') + '</div>' +
+          '</span><span class="plan-tier-rate">' + (id === 'matrix'
+            ? option.noDigitalPrice + '<small>不含数字移动案场</small>'
+            : option.price) + '</span></div>').join('') + '</div>' +
           '<div class="plan-entry-action"><span>选择档位与加配服务</span><span class="plus" aria-hidden="true"></span></div></a>';
       }).join('') + '</div></article>';
   }
@@ -391,13 +397,20 @@
   function render() {
     const [page,id] = route();
     if (activeRoute === 'catalog' && page !== 'catalog') catalogScroll = window.scrollY;
+    if (page !== activeRoute || id !== activeId) {
+      clearTimeout(notifyTimer);
+      get('status').classList.remove('visible');
+      get('status').textContent = '';
+    }
     activeRoute = page;
     activeId = id;
     document.body.dataset.page = page;
+    if (page === 'clients') get('clients-tab').setAttribute('aria-current','page');
+    else get('clients-tab').removeAttribute('aria-current');
     const previous = saved.find(item => item.id === id);
     activePackage = previous?.package || '';
     header();
-    get('main').innerHTML = ({catalog, service:servicePage, cases:casesPage, case:casePage, plans:plansPage, plan:planPage}[page])(id);
+    get('main').innerHTML = ({catalog, service:servicePage, cases:casesPage, case:casePage, plans:plansPage, plan:planPage, clients:clientsPage}[page])(id);
     document.title = get('main').querySelector('h1').textContent + ' · 贝壳 × 妙窝生活';
     window.scrollTo({top:page === 'catalog' ? catalogScroll : 0, behavior:'instant'});
     window.mountMotion?.();
@@ -406,7 +419,10 @@
   function itemData(item) {
     const title = services[item.id]?.name || productsById[item.id]?.name || item.id;
     const option = productsById[item.id]?.packages.find(entry => entry.id === item.package);
-    return {title,config:option ? option.name + ' · ' + option.price : '合作配置待沟通',
+    const noDigital = item.id === 'matrix' && item.variant === 'no-digital';
+    const price = item.basePrice || (noDigital ? option?.noDigitalPrice : option?.price);
+    const config = option ? [option.name,noDigital && '不含数字移动案场',price].filter(Boolean).join(' · ') : '合作配置待沟通';
+    return {title,config,
       addOns:Array.isArray(item.addOns) ? item.addOns.filter(entry => entry && entry.name && entry.quote) : []};
   }
 
@@ -416,13 +432,14 @@
       '<ul class="saved-list">' + saved.map(item => {
         const {title,config,addOns} = itemData(item);
         return '<li><div><a data-action="close-selection" href="' + (services[item.id] ? serviceHref(item.id) : planHref(item.id)) +
-          '"><b>' + title + '</b><small>' + config + '</small></a>' +
+          '"><b>' + title + '</b><small>' + escape(config) + '</small></a>' +
           addOns.map(extra => '<small>' + escape(extra.name) + ' · ' + escape(extra.quote) + '</small>').join('') +
           '</div><button data-action="remove" data-id="' + item.id +
       '" aria-label="移除' + title + '">移除</button></li>';
       }).join('') + '</ul><label>项目名称<input id="project" maxlength="70" value="' + escape(project) +
-      '"></label><label>项目需求<textarea id="notes" rows="4" maxlength="500">' + escape(notes) +
-      '</textarea></label><div id="pdf-export" class="pdf-export" aria-live="polite"></div>' +
+      '" required></label><label>项目需求<textarea id="notes" rows="4" maxlength="500">' + escape(notes) +
+      '</textarea></label><div class="customer-save"><button class="outline" type="button" data-action="save-customer">保存到我的客户</button>' +
+      '<p id="customer-save-status" role="status"></p></div><div id="pdf-export" class="pdf-export" aria-live="polite"></div>' +
       '<div class="selection-actions"><button class="primary" type="button" data-action="export-pdf">生成 PDF 清单</button>' +
       '<button class="outline print-option" type="button" data-action="print">打印清单</button><button class="text-download" type="button" data-action="download">导出文字版</button></div>'
       : '<div class="empty"><h3>还没有加入服务</h3><p>在服务详情或合作方案页选择「加入意向清单」</p></div>');
@@ -442,6 +459,55 @@
 
   function selectionText() {
     return window.SelectionDocument.toText(selectionDocument());
+  }
+
+  function customerHistory() {
+    const records = storage.get(customerHistoryKey, []);
+    return Array.isArray(records) ? records.filter(entry =>
+      typeof entry?.id === 'string' && Number.isFinite(entry.savedAt) && Array.isArray(entry.document?.sections)
+    ) : [];
+  }
+
+  function saveCustomer() {
+    if (!saved.length) return;
+    const nameField = get('project');
+    if (!project.trim()) {
+      nameField.setCustomValidity('请输入项目名称');
+      nameField.reportValidity();
+      return;
+    }
+    const status = get('customer-save-status');
+    const record = selectionDocument();
+    const records = customerHistory();
+    if (JSON.stringify(records[0]?.document) !== JSON.stringify(record)) {
+      const savedAt = Date.now();
+      const id = savedAt.toString(36) + '-' + Math.random().toString(36).slice(2);
+      if (!storage.set(customerHistoryKey, [{id,savedAt,document:record},...records])) {
+        status.textContent = '保存失败，请检查浏览器是否允许本地存储。';
+        return;
+      }
+    }
+    status.innerHTML = '已保存 · <a href="#clients" data-action="close-selection">查看历史</a>';
+    if (activeRoute === 'clients') get('main').innerHTML = clientsPage();
+  }
+
+  function clientsPage() {
+    const records = customerHistory();
+    const entries = records.map(({id,savedAt,document:record}) =>
+      '<details class="customer-record"><summary><span><b>' + escape(record.project) +
+      '</b><small>' + escape(savedAtFormat.format(savedAt)) + ' · ' + record.sections.length +
+      ' 项意向</small></span><span>查看清单</span></summary><div class="customer-record-body">' +
+      record.sections.map(section => '<section><h3>' + escape(section.title) + '</h3><p>' +
+        escape(section.configuration) + ' · <strong>' + escape(section.fee) + '</strong></p><ul>' +
+        section.rows.map(row => '<li><b>' + escape(row.name) + '</b> · ' + escape(row.spec) +
+          ' · ' + escape(row.fee) + '</li>').join('') + '</ul></section>').join('') +
+      (record.notes ? '<section><h3>项目需求</h3><p class="customer-notes">' + escape(record.notes) + '</p></section>' : '') +
+      '<button type="button" class="outline" data-action="download-customer" data-id="' + escape(id) +
+      '">下载文字清单</button></div></details>').join('');
+    return '<article class="wrap detail"><header class="detail-header"><div><h1>我的客户</h1>' +
+      '<p>在此浏览器中保存的项目选配历史</p></div></header>' +
+      (entries || '<div class="empty"><h2>暂无项目记录</h2><p>完成选配后，在意向清单中填写项目名称并保存到我的客户。</p>' +
+        '<a class="outline" href="#plans">前往合作方案</a></div>') + '</article>';
   }
 
   async function exportPDF() {
@@ -530,11 +596,11 @@
     }
   }
 
-  function download() {
-    const url = URL.createObjectURL(new Blob(['\ufeff' + selectionText()],{type:'text/plain;charset=utf-8'}));
+  function downloadText(text, filename) {
+    const url = URL.createObjectURL(new Blob(['\ufeff' + text],{type:'text/plain;charset=utf-8'}));
     const link = document.createElement('a');
     link.href = url;
-    link.download = '新房营销意向清单.txt';
+    link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -603,7 +669,12 @@
       const button = get('main').querySelector('[data-action="save"]');
       if (button && id === activeId) button.textContent = '加入意向清单';
     },
-    download,
+    download() { downloadText(selectionText(), '新房营销意向清单.txt'); },
+    'save-customer':saveCustomer,
+    'download-customer'(id) {
+      const record = customerHistory().find(entry => entry.id === id);
+      if (record) downloadText(window.SelectionDocument.toText(record.document), '新房营销历史清单.txt');
+    },
     'export-pdf':exportPDF,
     'share-pdf':sharePDF,
     print:printSelection
@@ -629,8 +700,18 @@
     }
     const {id,value} = event.target;
     if (id === 'service-search') { filter = value; updateResults(); }
-    if (id === 'project') { invalidatePDF(); project = value; storage.set('showroom-project',value); }
-    if (id === 'notes') { invalidatePDF(); notes = value; storage.set('showroom-notes',value); }
+    if (id === 'project' || id === 'notes') {
+      invalidatePDF();
+      get('customer-save-status').textContent = '';
+      if (id === 'project') {
+        event.target.setCustomValidity('');
+        project = value;
+        storage.set('showroom-project',value);
+      } else {
+        notes = value;
+        storage.set('showroom-notes',value);
+      }
+    }
   });
   document.addEventListener('change', event => {
     if (event.target.matches('select[data-config],input[data-config]')) updateConfiguration(event.target);
@@ -640,6 +721,9 @@
   };
   dialog.addEventListener('close', closeOverlay);
   get('case-viewer').addEventListener('close',closeOverlay);
+  window.addEventListener('storage', event => {
+    if (event.key === customerHistoryKey && activeRoute === 'clients') get('main').innerHTML = clientsPage();
+  });
   window.addEventListener('hashchange', () => {
     const update = () => {
       render();

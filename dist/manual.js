@@ -591,7 +591,7 @@ window.MANUAL = {
       ],
       "note": "推广周期 5.20–5.26",
       "source": "效果付费 3.0 第 53 页",
-      "board": "case-board-shanhai"
+      "board": "case-board-shanhai-reference"
     },
     {
       "id": "future",
@@ -633,7 +633,7 @@ window.MANUAL = {
       ],
       "note": "推广周期 4.15–4.21。28 套为 4 月全案成交量",
       "source": "效果付费 3.0 第 54 页",
-      "board": "case-board-future"
+      "board": "case-board-future-reference"
     },
     {
       "id": "wanbo-campaign",
@@ -671,7 +671,7 @@ window.MANUAL = {
       ],
       "note": "推广周期 3.11–3.17。成交与站内增长采用不同统计口径",
       "source": "效果付费 3.0 第 55 页",
-      "board": "case-board-wanbo"
+      "board": "case-board-wanbo-reference"
     },
     {
       "id": "yuefu",

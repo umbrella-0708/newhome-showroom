@@ -106,10 +106,12 @@ window.SelectionDocument = (() => {
       services,groups:window.CATALOG.groups,products,manual,stored:() => item
     }).snapshot(item.id);
     // Keep the service specifications saved with the selection. Legacy records are reconstructed.
+    const noDigital = configuration.variant === 'no-digital';
     const included = Array.isArray(item.included) && item.included.length ? item.included : configuration.included;
     const rows = [];
     for (const entry of included) {
       const id = entry.name === '贝壳币激励' ? 'coin' : serviceId(entry.name);
+      if (noDigital && id === 'digital') continue;
       if (!id) {
         rows.push(row(entry.name,entry.spec || '待确认',[],'基础标配','方案内含'));
         continue;
@@ -125,8 +127,8 @@ window.SelectionDocument = (() => {
          '渠道合作状态待确认，涉及开渠条件的权益需核实']
       : ['成交范围、佣金额度、计费基数和结算条件在合作时确认'];
     return {
-      title:product.name,category:'基础方案',configuration:selected.name,
-      fee:feeText(item.basePrice) || selected.price,rows,notes,
+      title:product.name,category:'基础方案',configuration:selected.name + (noDigital ? ' · 不含数字移动案场' : ''),
+      fee:feeText(item.basePrice) || configuration.basePrice,rows,notes,
       additions:configuration.addOns.map(entry => ({
         name:services[entry.id]?.name || entry.name,
         fee:feeText(entry.quote), mode:entry.mode
